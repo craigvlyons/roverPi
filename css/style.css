@@ -1,26 +1,28 @@
 /* Style for Video Area */
 #videoArea {
+    position: relative;
     width: 100%;
-    height: 400px; /* Adjust as needed */
-    background-color: #666; /* Placeholder color */
+    height: 480px; /* Adjust as needed */
+    /* background-color: #666; Placeholder color */
     margin-top: 20px;
     display: flex;
     justify-content: center;
     align-items: center;
     color: white;
     font-size: 20px;
+    border: 2px solid black;
 }
 
 /* Placeholder text style, remove when actual video is implemented */
-#videoArea::before {
+/* #videoArea #placeholderText::before {
     content: 'Video Feed Area';
-}
+} */
 
 /* Style for Joystick Control */
 #joystick {
-    position: fixed;
-    right: 10px;
-    bottom: 10px;
+    position: absolute;
+    right: 75px;
+    bottom: 75px;
 }
 
 /* Responsive Design for smaller screens */

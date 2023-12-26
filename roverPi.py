@@ -8,7 +8,7 @@ import serial
 import socketserver
 from http import server
 from threading import Condition
-from urllib import urlparse
+from urllib.parse import urlparse
 from motor import convert_joystick_to_motor_speed
 from typing import Tuple
 from picamera2 import Picamera2
@@ -59,10 +59,10 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/':
             self.send_response(301)
-            self.send_header('Location', '/roverPi.html')
+            self.send_header('index.html')
             self.end_headers()
-        elif self.path == '/roverPi.html':
-            content = load_file('Location', '/roverPi').encode('utf-8')
+        elif self.path == '/index.html':
+            content = load_file('index.html')
             self.send_response(200)
             self.send_header('Content-Type', 'text/html')
             self.send_header('Content-Length', len(content))

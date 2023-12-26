@@ -6,11 +6,12 @@
 <link rel="stylesheet" type="text/css" href="/css/style.css" >
 </head>
 <body>
-<h1>Rover Stream</h1>
-<div id="videoArea">
-    <img src="stream.mjpg" width="640" height="480" alt="Camera Stream"/>
-</div>
-    <div id="joystick"></div>
+    <h1>Rover Stream</h1>
+    <div id="videoArea">
+        <span id="placeholderText"></span>
+        <img src="stream.mjpg" width="640" height="480" alt="Camera Stream" />
+        <div id="joystick"></div>
+    </div>
 
     <script>
         // JavaScript for Tabs
@@ -48,7 +49,8 @@
                     console.error("Error in sending request", xhr, status, error);
                 }
             });
-        });
+        });      
+
     </script>
 </body>
 </html>
