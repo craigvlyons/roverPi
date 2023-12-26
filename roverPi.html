@@ -1,10 +1,54 @@
 <html>
 <head>
 <title>Rover</title>
+<script src="https://cdn.jsdelivr.net/npm/nipplejs/dist/nipplejs.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
 <link rel="stylesheet" type="text/css" href="/css/style.css" >
 </head>
 <body>
 <h1>Rover Stream</h1>
-<img src="stream.mjpg" width="640" height="480" alt="Camera Stream"/>
+<div id="videoArea">
+    <img src="stream.mjpg" width="640" height="480" alt="Camera Stream"/>
+</div>
+    <div id="joystick"></div>
+
+    <script>
+        // JavaScript for Tabs
+        function openTab(evt, tabName) {
+            // Tab opening logic goes here
+            console.log("Tab clicked:", tabName);
+        }
+
+        var joystick = nipplejs.create({
+            zone: document.getElementById('joystick'),
+            mode: 'static',
+            position: { left: '50%', top: '50%' },
+            color: 'blue'
+        });
+
+        joystick.on('move', function (evt, data) {
+            var distance = data.distance;
+            var angle = data.angle.radian;
+
+            // Calculate x, y from angle and distance
+            var x = distance * Math.cos(angle);
+            var y = distance * Math.sin(angle);
+
+            // Send x, y to Flask server using $.ajax
+            $.ajax({
+                url: '/control',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ x: x, y: y }),
+                dataType: 'json',
+                success: function(response) {
+                    console.log(response);
+                },
+                error: function(xhr, status, error) {
+                    console.error("Error in sending request", xhr, status, error);
+                }
+            });
+        });
+    </script>
 </body>
 </html>

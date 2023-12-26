@@ -1,0 +1,41 @@
+/* Style for Video Area */
+#videoArea {
+    width: 100%;
+    height: 400px; /* Adjust as needed */
+    background-color: #666; /* Placeholder color */
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 20px;
+}
+
+/* Placeholder text style, remove when actual video is implemented */
+#videoArea::before {
+    content: 'Video Feed Area';
+}
+
+/* Style for Joystick Control */
+#joystick {
+    position: fixed;
+    right: 10px;
+    bottom: 10px;
+}
+
+/* Responsive Design for smaller screens */
+@media screen and (max-width: 600px) {
+    #tabs button {
+        padding: 10px 12px;
+        font-size: 14px;
+    }
+
+    #videoArea {
+        height: 300px;
+    }
+
+    #joystick {
+        right: 5px;
+        bottom: 5px;
+    }
+}

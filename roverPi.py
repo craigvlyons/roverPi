@@ -2,21 +2,47 @@
 
 import os
 import io
+import json
 import logging
+import serial
 import socketserver
 from http import server
 from threading import Condition
 from urllib import urlparse
-
+from motor import convert_joystick_to_motor_speed
+from typing import Tuple
 from picamera2 import Picamera2
 from picamera2.encoders import JpegEncoder
 from picamera2.outputs import FileOutput
+
+x_min = 0
+x_max = 0
+y_min = 0
+y_max = 0
+joystick_val = 50
 
 
 def load_file(path):
     with open(path, 'rb') as file:
         return file.read()
 
+class MockSerial:
+    def __init__(self, port, baudrate):
+        print(f"Initializing mock serial port: {port} with baudrate: {baudrate}")
+    
+    def write(self, data):
+        print(f"Writing to mock serial: {data}")
+    
+    def readline(self):
+        return "Mock response\n".encode()
+
+    def close(self):
+        print("Closing mock serial port")
+
+if os.path.exists('/dev/ttyS0'):
+    ser = serial.Serial('/dev/ttyS0', 1000000)
+else:
+    ser = MockSerial('/dev/ttyS0', 1000000)
 
 class StreamingOutput(io.BufferedIOBase):
     def __init__(self):
@@ -86,7 +112,29 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             except Exception as e:
                 logging.warning(
                     'Removed streaming client %s: %s',
-                    self.client_address, str(e))
+                    self.client_address, str(e))        
+        else:
+            self.send_error(404)
+            self.end_headers()
+
+    def do_POST(self):
+        if self.path == '/control':
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
+
+            x = data['x']
+            y = data['y']
+        
+            # Convert x, y joystick values to motor speeds (L and R)    
+            L, R = convert_joystick_to_motor_speed(x, y)
+
+            command = {"T": 1, "L": L, "R": R}
+            ser.write(json.dumps(command).encode())
+
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'OK')
         else:
             self.send_error(404)
             self.end_headers()
