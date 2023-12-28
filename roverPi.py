@@ -21,9 +21,12 @@ y_min = 0
 y_max = 0
 joystick_val = 50
 
+ser = serial.Serial('/dev/ttyS0', 1000000)
 
 def load_file(path):
-    with open(path, 'rb') as file:
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    absolute_path = os.path.join(script_dir, path)
+    with open(absolute_path, 'rb') as file:
         return file.read()
 
 class MockSerial:
@@ -39,10 +42,11 @@ class MockSerial:
     def close(self):
         print("Closing mock serial port")
 
-if os.path.exists('/dev/ttyS0'):
-    ser = serial.Serial('/dev/ttyS0', 1000000)
-else:
-    ser = MockSerial('/dev/ttyS0', 1000000)
+#if os.path.exists('/dev/ttyS0'):
+    #ser = serial.Serial('/dev/ttyS0', 1000000)
+#else:
+    #ser = MockSerial('/dev/ttyS0', 1000000)
+
 
 class StreamingOutput(io.BufferedIOBase):
     def __init__(self):
@@ -59,7 +63,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/':
             self.send_response(301)
-            self.send_header('index.html')
+            self.send_header('Location', '/index.html')
             self.end_headers()
         elif self.path == '/index.html':
             content = load_file('index.html')
@@ -130,7 +134,9 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             L, R = convert_joystick_to_motor_speed(x, y)
 
             command = {"T": 1, "L": L, "R": R}
-            ser.write(json.dumps(command).encode())
+            command_str = json.dumps(command).encode()
+            print(f"sending command: {command_str}")
+            ser.write(command_str)
 
             self.send_response(200)
             self.end_headers()
