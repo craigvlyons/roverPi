@@ -7,6 +7,8 @@ import logging
 import serial
 import socketserver
 import Utils.settings as settings
+import libcamera
+
 from http import server
 from threading import Condition
 from urllib.parse import urlparse
@@ -109,6 +111,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
 
 
     def do_POST(self):
+        global last_command
         if self.path == '/control':
             content_length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(content_length)
@@ -118,10 +121,10 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             y = data['y']
 
             if x == 0 and y == 0:
-                # print("Emergency stop")
+                print("Emergency stop")
                 command = {"T": 0}
                 command_str = json.dumps(command).encode()
-                # print(f"sending command: {command_str}")
+                print(f"sending stop command: {command_str}")
                 ser.write(command_str)
                 self.send_response(200)
                 self.end_headers()
@@ -158,7 +161,16 @@ class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
 
 
 picam2 = Picamera2()
-picam2.configure(picam2.create_video_configuration(main={"size": (640, 480)}))
+config = picam2.create_video_configuration(main={"size": (640, 480)})
+
+# Add the transform to flip the video upside down
+preview_config = picam2.create_preview_configuration()
+preview_config["transform"] = libcamera.Transform(hflip=0, vflip=1)
+# picam2.configure(preview_config)
+
+
+
+picam2.configure(config)
 output = StreamingOutput()
 picam2.start_recording(JpegEncoder(), FileOutput(output))
 
