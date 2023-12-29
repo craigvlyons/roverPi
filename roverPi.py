@@ -6,20 +6,18 @@ import json
 import logging
 import serial
 import socketserver
+import Utils.settings as settings
 from http import server
 from threading import Condition
 from urllib.parse import urlparse
 from motor import convert_joystick_to_motor_speed
 from typing import Tuple
+from time import sleep, time
 from picamera2 import Picamera2
 from picamera2.encoders import JpegEncoder
 from picamera2.outputs import FileOutput
 
-x_min = 0
-x_max = 0
-y_min = 0
-y_max = 0
-joystick_val = 50
+last_command = time()
 
 ser = serial.Serial('/dev/ttyS0', 1000000)
 
@@ -29,19 +27,7 @@ def load_file(path):
     with open(absolute_path, 'rb') as file:
         return file.read()
 
-class MockSerial:
-    def __init__(self, port, baudrate):
-        print(f"Initializing mock serial port: {port} with baudrate: {baudrate}")
-    
-    def write(self, data):
-        print(f"Writing to mock serial: {data}")
-    
-    def readline(self):
-        return "Mock response\n".encode()
-
-    def close(self):
-        print("Closing mock serial port")
-
+# Mock serial port for testing
 #if os.path.exists('/dev/ttyS0'):
     #ser = serial.Serial('/dev/ttyS0', 1000000)
 #else:
@@ -121,6 +107,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.send_error(404)
             self.end_headers()
 
+
     def do_POST(self):
         if self.path == '/control':
             content_length = int(self.headers['Content-Length'])
@@ -129,15 +116,34 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
 
             x = data['x']
             y = data['y']
+
+            if x == 0 and y == 0:
+                # print("Emergency stop")
+                command = {"T": 0}
+                command_str = json.dumps(command).encode()
+                # print(f"sending command: {command_str}")
+                ser.write(command_str)
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b'OK')
+                return
+            
+            if last_command + settings.joystick_delay > time():
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b'OK')
+                return
         
             # Convert x, y joystick values to motor speeds (L and R)    
             L, R = convert_joystick_to_motor_speed(x, y)
-
+            # print(f"Joystick: {x}, {y} -> Motor: {L}, {R}")
+            
             command = {"T": 1, "L": L, "R": R}
             command_str = json.dumps(command).encode()
-            print(f"sending command: {command_str}")
+            # print(f"sending command: {command_str}")
             ser.write(command_str)
 
+            last_command = time()
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b'OK')

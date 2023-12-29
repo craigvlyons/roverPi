@@ -50,6 +50,22 @@
                 }
             });
         });      
+        
+        joystick.on('end', function (evt, data) {
+            $.ajax({
+                url: '/control',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ x: 0, y: 0 }),
+                dataType: 'json',
+                success: function(response) {
+                    console.log(response);
+                },
+                error: function(xhr, status, error) {
+                    console.error("Error in sending request", xhr, status, error);
+                }
+            });
+        });
 
     </script>
 </body>
