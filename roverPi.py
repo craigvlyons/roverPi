@@ -19,8 +19,8 @@ from picamera2 import Picamera2
 from picamera2.encoders import JpegEncoder
 from picamera2.outputs import FileOutput
 
+# global variables
 last_command = time()
-
 ser = serial.Serial('/dev/ttyS0', 1000000)
 
 def load_file(path):
@@ -28,12 +28,6 @@ def load_file(path):
     absolute_path = os.path.join(script_dir, path)
     with open(absolute_path, 'rb') as file:
         return file.read()
-
-# Mock serial port for testing
-#if os.path.exists('/dev/ttyS0'):
-    #ser = serial.Serial('/dev/ttyS0', 1000000)
-#else:
-    #ser = MockSerial('/dev/ttyS0', 1000000)
 
 
 class StreamingOutput(io.BufferedIOBase):
@@ -121,10 +115,10 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             y = data['y']
 
             if x == 0 and y == 0:
-                print("Emergency stop")
+                # print("Emergency stop")
                 command = {"T": 0}
                 command_str = json.dumps(command).encode()
-                print(f"sending stop command: {command_str}")
+                # print(f"sending stop command: {command_str}")
                 ser.write(command_str)
                 self.send_response(200)
                 self.end_headers()
@@ -142,14 +136,13 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             # print(f"Joystick: {x}, {y} -> Motor: {L}, {R}")
             
             command = {"T": 1, "L": L, "R": R}
-            command_str = json.dumps(command).encode()
-            # print(f"sending command: {command_str}")
+            command_str = json.dumps(command).encode()            
             ser.write(command_str)
-
             last_command = time()
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b'OK')
+
         else:
             self.send_error(404)
             self.end_headers()
@@ -160,15 +153,13 @@ class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
     daemon_threads = True
 
 
+# Pi camera
 picam2 = Picamera2()
 config = picam2.create_video_configuration(main={"size": (640, 480)})
 
 # Add the transform to flip the video upside down
 preview_config = picam2.create_preview_configuration()
 preview_config["transform"] = libcamera.Transform(hflip=0, vflip=1)
-# picam2.configure(preview_config)
-
-
 
 picam2.configure(config)
 output = StreamingOutput()
