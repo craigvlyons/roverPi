@@ -1,3 +1,8 @@
+body{
+    background-color: black;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
 /* Style for Video Area */
 #videoArea {
     position: relative;
@@ -13,17 +18,41 @@
     border: 2px solid black;
 }
 
-/* Placeholder text style, remove when actual video is implemented */
-/* #videoArea #placeholderText::before {
-    content: 'Video Feed Area';
-} */
-
 /* Style for Joystick Control */
 #joystick {
     position: absolute;
     right: 75px;
     bottom: 75px;
 }
+
+/* Style for the table */
+#table {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent background */
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+    z-index: 2; /* Ensure it's above the video */
+}
+
+#table table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+#table th, #table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+#table th {
+    background-color: #f2f2f2;
+}
+
 
 /* Responsive Design for smaller screens */
 @media screen and (max-width: 600px) {

@@ -4,15 +4,17 @@ import os
 import io
 import json
 import logging
-import serial
+
 import socketserver
 import Utils.settings as settings
 import libcamera
 
+from Utils.commands import Commands, SerialCommands
 from http import server
 from threading import Condition
 from urllib.parse import urlparse
 from motor import convert_joystick_to_motor_speed
+from Utils.update_table import UpdateTable
 from typing import Tuple
 from time import sleep, time
 from picamera2 import Picamera2
@@ -21,7 +23,9 @@ from picamera2.outputs import FileOutput
 
 # global variables
 last_command = time()
-ser = serial.Serial('/dev/ttyS0', 1000000)
+# ser = serial.Serial('/dev/ttyS0', 1000000)
+ser = SerialCommands()
+commands = Commands
 
 def load_file(path):
     script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -47,6 +51,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.send_response(301)
             self.send_header('Location', '/index.html')
             self.end_headers()
+
         elif self.path == '/index.html':
             content = load_file('index.html')
             self.send_response(200)
@@ -54,6 +59,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.send_header('Content-Length', len(content))
             self.end_headers()
             self.wfile.write(content)
+
         elif self.path.startswith("/css/") or self.path.startswith("/images/"):
             # Extract file path and serve files from css and images directories
             parsed_path = urlparse(self.path)
@@ -77,6 +83,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             else:
                 self.send_error(404)
                 self.end_headers()
+
         elif self.path == '/stream.mjpg':
             self.send_response(200)
             self.send_header('Age', 0)
@@ -98,7 +105,19 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             except Exception as e:
                 logging.warning(
                     'Removed streaming client %s: %s',
-                    self.client_address, str(e))        
+                    self.client_address, str(e))     
+                 
+        elif self.path == '/update_table':                  
+            # Use the UpdateTable class to get the rover's information
+            table_data = UpdateTable().get_table_data()
+            table_json = json.dumps(table_data).encode()
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', len(table_json))
+            self.end_headers()
+            self.wfile.write(table_json)
+              
         else:
             self.send_error(404)
             self.end_headers()
@@ -116,10 +135,12 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
 
             if x == 0 and y == 0:
                 # print("Emergency stop")
-                command = {"T": 0}
-                command_str = json.dumps(command).encode()
+                command = commands.EMERGENCY_STOP
+                ser.send_serial_command(command)
+
+                # command_str = json.dumps(command).encode()
                 # print(f"sending stop command: {command_str}")
-                ser.write(command_str)
+                # ser.write(command_str)
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(b'OK')
@@ -135,9 +156,13 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             L, R = convert_joystick_to_motor_speed(x, y)
             # print(f"Joystick: {x}, {y} -> Motor: {L}, {R}")
             
-            command = {"T": 1, "L": L, "R": R}
-            command_str = json.dumps(command).encode()            
-            ser.write(command_str)
+            # command = {"T": 1, "L": L, "R": R}
+            command = commands.SPEED_INPUT
+            command["L"] = L
+            command["R"] = R           
+            print(f"sending command: {command}") 
+            ser.send_serial_command(command)
+            
             last_command = time()
             self.send_response(200)
             self.end_headers()

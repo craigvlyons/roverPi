@@ -1,16 +1,46 @@
 <html>
+
 <head>
-<title>Rover</title>
-<script src="https://cdn.jsdelivr.net/npm/nipplejs/dist/nipplejs.min.js"></script>
-<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-<link rel="stylesheet" type="text/css" href="/css/style.css" >
+    <title>Rover</title>
+    <script src="https://cdn.jsdelivr.net/npm/nipplejs/dist/nipplejs.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="/css/style.css">
 </head>
+
 <body>
     <h1>Rover Stream</h1>
     <div id="videoArea">
         <span id="placeholderText"></span>
         <img src="stream.mjpg" width="640" height="480" alt="Camera Stream" />
         <div id="joystick"></div>
+        <div id="table">
+            <table>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Value</th>
+                </tr>
+                <tr>
+                    <td>IP Address</td>
+                    <td id="ipValue">--</td>
+                </tr>
+                <tr>
+                    <td>Voltage</td>
+                    <td id="voltageValue">--</td>
+                </tr>
+                <tr>
+                    <td>Pitch</td>
+                    <td id="pitchValue">--</td>
+                </tr>
+                <tr>
+                    <td>Roll</td>
+                    <td id="rollValue">--</td>
+                </tr>
+                <tr>
+                    <td>Yaw</td>
+                    <td id="yawValue">--</td>
+                </tr>
+            </table>
+        </div>
     </div>
 
     <script>
@@ -24,7 +54,7 @@
             zone: document.getElementById('joystick'),
             mode: 'static',
             position: { left: '50%', top: '50%' },
-            color: 'blue'
+            color: 'red'
         });
 
         joystick.on('move', function (evt, data) {
@@ -35,22 +65,22 @@
             var x = distance * Math.cos(angle);
             var y = distance * Math.sin(angle);
 
-            // Send x, y to Flask server using $.ajax
+            // Send x, y using $.ajax
             $.ajax({
                 url: '/control',
                 type: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({ x: x, y: y }),
                 dataType: 'json',
-                success: function(response) {
+                success: function (response) {
                     console.log(response);
                 },
-                error: function(xhr, status, error) {
+                error: function (xhr, status, error) {
                     console.error("Error in sending request", xhr, status, error);
                 }
             });
-        });      
-        
+        });
+
         joystick.on('end', function (evt, data) {
             $.ajax({
                 url: '/control',
@@ -58,15 +88,37 @@
                 contentType: 'application/json',
                 data: JSON.stringify({ x: 0, y: 0 }),
                 dataType: 'json',
-                success: function(response) {
+                success: function (response) {
                     console.log(response);
                 },
-                error: function(xhr, status, error) {
+                error: function (xhr, status, error) {
                     console.error("Error in sending request", xhr, status, error);
                 }
             });
         });
 
+        // need to update the table values every 3 seconds
+        setInterval(function () {
+            $.ajax({
+                url: '/status',
+                type: 'GET',
+                contentType: 'application/json',
+                dataType: 'json',
+                success: function (response) {
+                    console.log(response);
+                    $('#ipValue').text(response.ip);
+                    $('#voltageValue').text(response.voltage);
+                    $('#pitchValue').text(response.pitch);
+                    $('#rollValue').text(response.roll);
+                    $('#yawValue').text(response.yaw);
+                },
+                error: function (xhr, status, error) {
+                    console.error("Error in sending request", xhr, status, error);
+                }
+            });
+        }, 3000);
+
     </script>
 </body>
+
 </html>
