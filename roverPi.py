@@ -1,9 +1,10 @@
-#!/usr/bin/python3
+
 
 import os
 import io
 import json
 import logging
+import sys
 
 import socketserver
 import Utils.settings as settings
@@ -20,6 +21,8 @@ from time import sleep, time
 from picamera2 import Picamera2
 from picamera2.encoders import JpegEncoder
 from picamera2.outputs import FileOutput
+
+print(sys.path)
 
 # global variables
 last_command = time()
@@ -107,7 +110,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
                     'Removed streaming client %s: %s',
                     self.client_address, str(e))     
                  
-        elif self.path == '/update_table':                  
+        elif self.path == '/status':                  
             # Use the UpdateTable class to get the rover's information
             table_data = UpdateTable().get_table_data()
             table_json = json.dumps(table_data).encode()
@@ -117,7 +120,7 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.send_header('Content-Length', len(table_json))
             self.end_headers()
             self.wfile.write(table_json)
-              
+ 
         else:
             self.send_error(404)
             self.end_headers()
@@ -135,12 +138,8 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
 
             if x == 0 and y == 0:
                 # print("Emergency stop")
-                command = commands.EMERGENCY_STOP
-                ser.send_serial_command(command)
-
-                # command_str = json.dumps(command).encode()
-                # print(f"sending stop command: {command_str}")
-                # ser.write(command_str)
+                e_stop = commands.EMERGENCY_STOP
+                ser.send_serial_command(e_stop)
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(b'OK')
@@ -157,10 +156,10 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             # print(f"Joystick: {x}, {y} -> Motor: {L}, {R}")
             
             # command = {"T": 1, "L": L, "R": R}
-            command = commands.SPEED_INPUT
+            command = Commands.SPEED_INPUT
             command["L"] = L
             command["R"] = R           
-            print(f"sending command: {command}") 
+            # print(f"sending command: {command}") 
             ser.send_serial_command(command)
             
             last_command = time()
