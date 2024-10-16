@@ -112,14 +112,14 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
                  
         elif self.path == '/status':                  
             # Use the UpdateTable class to get the rover's information
-            table_data = UpdateTable().get_table_data()
-            table_json = json.dumps(table_data).encode()
+            #table_data = UpdateTable().get_table_data()
+            #table_json = json.dumps(table_data).encode()
 
             self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Content-Length', len(table_json))
-            self.end_headers()
-            self.wfile.write(table_json)
+            #self.send_header('Content-Type', 'application/json')
+            #self.send_header('Content-Length', len(table_json))
+            #self.end_headers()
+            #self.wfile.write(table_json)
  
         else:
             self.send_error(404)

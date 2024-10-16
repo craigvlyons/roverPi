@@ -35,7 +35,7 @@ class Commands:
     SPD_RATE_SAVE =          {"T":903}
     GET_NVS_SPACE =          {"T":904}
     NVS_CLEAR =              {"T":905}
-    NVS_CLEAR =              {"T":905}
+    
 
 class SerialCommands:
     def __init__(self, port='/dev/ttyS0', baudrate=1000000):
@@ -43,6 +43,7 @@ class SerialCommands:
 
     def send_serial_command(self, command: Commands):
         command_str = json.dumps(command).encode()
+        print(f"serial command: {command_str}")
         self.ser.write(command_str)
 
         response = self.ser.read(1024)
