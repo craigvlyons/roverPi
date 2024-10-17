@@ -57,28 +57,35 @@
             color: 'red'
         });
 
+        var lastSent = 0;
+        var sendInterval = 100;
+
         joystick.on('move', function (evt, data) {
-            var distance = data.distance;
-            var angle = data.angle.radian;
+            var now = Date.now();
+            if (now - lastSent >= sendInterval) {
+                var distance = data.distance;
+                var angle = data.angle.radian;
 
-            // Calculate x, y from angle and distance
-            var x = distance * Math.cos(angle);
-            var y = distance * Math.sin(angle);
+                // Calculate x, y from angle and distance
+                var x = distance * Math.cos(angle);
+                var y = distance * Math.sin(angle);
 
-            // Send x, y using $.ajax
-            $.ajax({
-                url: '/control',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ x: x, y: y }),
-                dataType: 'json',
-                success: function (response) {
-                    console.log(response);
-                },
-                error: function (xhr, status, error) {
-                    console.error("Error in sending request", xhr, status, error);
-                }
-            });
+                // Send x, y using $.ajax
+                $.ajax({
+                    url: '/control',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ x: x, y: y }),
+                    dataType: 'json',
+                    success: function (response) {
+                        console.log(response);
+                    },
+                    error: function (xhr, status, error) {
+                        console.error("Error in sending request", xhr, status, error);
+                    }
+                });
+                lastSent = now;
+            }
         });
 
         joystick.on('end', function (evt, data) {

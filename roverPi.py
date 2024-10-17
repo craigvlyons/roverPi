@@ -21,11 +21,12 @@ from time import sleep, time
 from picamera2 import Picamera2
 from picamera2.encoders import JpegEncoder
 from picamera2.outputs import FileOutput
+from Utils.CameraManager import CameraManager
 
 print(sys.path)
 
 # global variables
-last_command = time()
+last_command_time = time()
 # ser = serial.Serial('/dev/ttyS0', 1000000)
 ser = SerialCommands()
 commands = Commands
@@ -49,6 +50,8 @@ class StreamingOutput(io.BufferedIOBase):
 
 
 class StreamingHandler(server.BaseHTTPRequestHandler):
+    last_command = Commands.SPEED_INPUT
+
     def do_GET(self):
         if self.path == '/':
             self.send_response(301)
@@ -127,7 +130,8 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
 
 
     def do_POST(self):
-        global last_command
+        global last_command_time
+
         if self.path == '/control':
             content_length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(content_length)
@@ -145,24 +149,31 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
                 self.wfile.write(b'OK')
                 return
             
-            if last_command + settings.joystick_delay > time():
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(b'OK')
-                return
+            #if last_command_time + settings.joystick_delay > time():
+                # self.send_response(200)
+                # self.end_headers()
+                # self.wfile.write(b'OK')
+                # return
         
             # Convert x, y joystick values to motor speeds (L and R)    
             L, R = convert_joystick_to_motor_speed(x, y)
             # print(f"Joystick: {x}, {y} -> Motor: {L}, {R}")
+
+            # if the command is the same ignore it.
+            if self.last_command["L"] == L and self.last_command["R"] == R:
+                last_command_time = time()
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b'OK')
+                return
             
             # command = {"T": 1, "L": L, "R": R}
-            command = Commands.SPEED_INPUT
-            command["L"] = L
-            command["R"] = R           
+            self.last_command["L"] = L
+            self.last_command["R"] = R           
             # print(f"sending command: {command}") 
-            ser.send_serial_command(command)
+            ser.send_serial_command(self.last_command)
             
-            last_command = time()
+            last_command_time = time()
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b'OK')
@@ -176,22 +187,34 @@ class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
     allow_reuse_address = True
     daemon_threads = True
 
+    def __init__(self, server_address, RequestHandlerClass, output, last_command):
+        super().__init__(server_address, RequestHandlerClass)
+        self.output = output
+        self.last_command = last_command
 
-# Pi camera
-picam2 = Picamera2()
-config = picam2.create_video_configuration(main={"size": (640, 480)})
+# # Pi camera
+# picam2 = Picamera2()
+# config = picam2.create_video_configuration(main={"size": (640, 480)})
 
-# Add the transform to flip the video upside down
-preview_config = picam2.create_preview_configuration()
-preview_config["transform"] = libcamera.Transform(hflip=0, vflip=1)
+# # Add the transform to flip the video upside down
+# preview_config = picam2.create_preview_configuration()
+# preview_config["transform"] = libcamera.Transform(hflip=0, vflip=1)
 
-picam2.configure(config)
-output = StreamingOutput()
-picam2.start_recording(JpegEncoder(), FileOutput(output))
+# picam2.configure(config)
+# output = StreamingOutput()
+# picam2.start_recording(JpegEncoder(), FileOutput(output))
+
+camera_manager = CameraManager(width=640, height=480)
+camera_manager.start_stream()
+
+output = camera_manager.output
+# Initialize the last command object
+last_command = Commands.SPEED_INPUT
 
 try:
     address = ('', 8000)
-    server = StreamingServer(address, StreamingHandler)
+    server = StreamingServer(address, StreamingHandler, output, last_command)
     server.serve_forever()
 finally:
-    picam2.stop_recording()
+    #picam2.stop_recording()
+    camera_manager.stop_stream()

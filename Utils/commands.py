@@ -1,4 +1,5 @@
 import json
+import threading
 import serial
 
 '''For more details and descriptions of each command, you can refer to the 
@@ -40,17 +41,34 @@ class Commands:
 class SerialCommands:
     def __init__(self, port='/dev/ttyS0', baudrate=1000000):
         self.ser = serial.Serial(port, baudrate, timeout=2)
+        self.lock = threading.Lock()
+        self.response = None
 
+   # 1. Send a command without expecting a response
     def send_serial_command(self, command: Commands):
         command_str = json.dumps(command).encode()
-        print(f"serial command: {command_str}")
-        self.ser.write(command_str)
+        self.write_command(command_str, expect_response=False)
 
-        response = self.ser.read(1024)
-        
-        #print(f"serial response: {response}")
-        #decoded_response = response.decode('utf-8')
-        #print(f"decoded response: { decoded_response}")
-        #print("not f string" + decoded_response )
-        
-        return response
+    # 2. Send a command and expect a response
+    def send_serial_command_with_response(self, command: Commands):
+        command_str = json.dumps(command).encode()
+        return self.write_command(command_str, expect_response=True)
+
+    # Helper function for sending commands (with or without expecting a response)
+    def write_command(self, command_str, expect_response):
+        with self.lock:
+            print(f"Sending command: {command_str}")
+            self.ser.write(command_str)
+
+            if expect_response:
+                # Wait for a response from the device
+                response = self.ser.read(1024)  # Read up to 1024 bytes
+                print(f"Received response: {response}")
+                return response
+            else:
+                # No response expected
+                print("No response expected for this command.")
+                return None
+
+    def get_responce(self):
+        return self.responce
