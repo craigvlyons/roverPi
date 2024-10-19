@@ -10,11 +10,13 @@ import socketserver
 import Utils.settings as settings
 import libcamera
 
-from Utils.commands import Commands, SerialCommands
+from Utils.commands import Commands
+from Utils.SerialCommands import SerialCommands
+from Utils.MotorSerialThread import MotorSerialThread as MotorSerial
 from http import server
 from threading import Condition
 from urllib.parse import urlparse
-from motor import convert_joystick_to_motor_speed
+from Utils.motor import convert_joystick_to_motor_speed
 from Utils.update_table import UpdateTable
 from typing import Tuple
 from time import sleep, time
@@ -26,10 +28,11 @@ from Utils.CameraManager import CameraManager
 print(sys.path)
 
 # global variables
-last_command_time = time()
-# ser = serial.Serial('/dev/ttyS0', 1000000)
-ser = SerialCommands()
+ser = SerialCommands('/dev/ttyS0')
 commands = Commands
+motor_serial = MotorSerial(ser)
+esp_commands = SerialCommands(ser)
+
 
 def load_file(path):
     script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -50,8 +53,6 @@ class StreamingOutput(io.BufferedIOBase):
 
 
 class StreamingHandler(server.BaseHTTPRequestHandler):
-    last_command = Commands.SPEED_INPUT
-
     def do_GET(self):
         if self.path == '/':
             self.send_response(301)
@@ -130,53 +131,38 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
 
 
     def do_POST(self):
-        global last_command_time
-
         if self.path == '/control':
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
-            data = json.loads(post_data.decode('utf-8'))
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                data = json.loads(post_data.decode('utf-8'))
 
-            x = data['x']
-            y = data['y']
+                 # Validate data (e.g., ensure 'x' and 'y' keys exist)
+                if 'x' not in data or 'y' not in data:
+                    self.send_error(400, "Invalid data")
+                    return
 
-            if x == 0 and y == 0:
-                # print("Emergency stop")
-                e_stop = commands.EMERGENCY_STOP
-                ser.send_serial_command(e_stop)
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(b'OK')
-                return
+                x = data['x']
+                y = data['y']
+                if x == 0 and y == 0:
+                    # print("Emergency stop")
+                    e_stop = commands.EMERGENCY_STOP
+                    ser.send_serial_command(e_stop)
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(b'OK')
+                    return
             
-            #if last_command_time + settings.joystick_delay > time():
-                # self.send_response(200)
-                # self.end_headers()
-                # self.wfile.write(b'OK')
-                # return
+                motor_serial.update_joystick(x, y)
         
-            # Convert x, y joystick values to motor speeds (L and R)    
-            L, R = convert_joystick_to_motor_speed(x, y)
-            # print(f"Joystick: {x}, {y} -> Motor: {L}, {R}")
-
-            # if the command is the same ignore it.
-            if self.last_command["L"] == L and self.last_command["R"] == R:
-                last_command_time = time()
+                # last_command_time = time()
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(b'OK')
+
+            except json.JSONDecodeError:
+                self.send_error(400, "Malformed JSON data")
                 return
-            
-            # command = {"T": 1, "L": L, "R": R}
-            self.last_command["L"] = L
-            self.last_command["R"] = R           
-            # print(f"sending command: {command}") 
-            ser.send_serial_command(self.last_command)
-            
-            last_command_time = time()
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b'OK')
 
         else:
             self.send_error(404)
@@ -187,10 +173,10 @@ class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
     allow_reuse_address = True
     daemon_threads = True
 
-    def __init__(self, server_address, RequestHandlerClass, output, last_command):
+    def __init__(self, server_address, RequestHandlerClass, output):
         super().__init__(server_address, RequestHandlerClass)
         self.output = output
-        self.last_command = last_command
+        
 
 # # Pi camera
 # picam2 = Picamera2()
@@ -208,12 +194,10 @@ camera_manager = CameraManager(width=640, height=480)
 camera_manager.start_stream()
 
 output = camera_manager.output
-# Initialize the last command object
-last_command = Commands.SPEED_INPUT
 
 try:
     address = ('', 8000)
-    server = StreamingServer(address, StreamingHandler, output, last_command)
+    server = StreamingServer(address, StreamingHandler, output)
     server.serve_forever()
 finally:
     #picam2.stop_recording()
