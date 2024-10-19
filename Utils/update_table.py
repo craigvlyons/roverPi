@@ -1,7 +1,8 @@
 import json
 import subprocess
+from Utils.SerialCommands import SerialCommands
 
-from Utils.commands import Commands, SerialCommands
+from Utils.commands import Commands
 from typing import AnyStr 
 
 ser = SerialCommands()

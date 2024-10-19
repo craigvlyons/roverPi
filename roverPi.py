@@ -7,16 +7,17 @@ import logging
 import sys
 
 import socketserver
+import threading
 import Utils.settings as settings
 import libcamera
 
 from Utils.commands import Commands
 from Utils.SerialCommands import SerialCommands
-from Utils.MotorSerialThread import MotorSerialThread as MotorSerial
+from Utils.MotorSerial import MotorSerial 
 from http import server
 from threading import Condition
 from urllib.parse import urlparse
-from Utils.motor import convert_joystick_to_motor_speed
+
 from Utils.update_table import UpdateTable
 from typing import Tuple
 from time import sleep, time
@@ -25,13 +26,32 @@ from picamera2.encoders import JpegEncoder
 from picamera2.outputs import FileOutput
 from Utils.CameraManager import CameraManager
 
-print(sys.path)
+# print(sys.path)
+# Setup logging
+logging.basicConfig(level=logging.DEBUG)
 
-# global variables
+# Initialize serial communication
 ser = SerialCommands('/dev/ttyS0')
 commands = Commands
 motor_serial = MotorSerial(ser)
-esp_commands = SerialCommands(ser)
+esp_commands = SerialCommands('/dev/ttyS0')
+
+# Global variables
+camera_manager = None
+output = None
+
+
+def run_camera():
+    global camera_manager, output
+
+    camera_manager = CameraManager(width=640, height=480)
+    camera_manager.start_stream()
+    output = camera_manager.output  # Assign the camera output for streaming
+
+
+#start camera thread.
+camera_thread = threading.Thread(target=run_camera)
+camera_thread.start()
 
 
 def load_file(path):
@@ -145,17 +165,12 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
                 x = data['x']
                 y = data['y']
                 if x == 0 and y == 0:
-                    # print("Emergency stop")
-                    e_stop = commands.EMERGENCY_STOP
-                    ser.send_serial_command(e_stop)
-                    self.send_response(200)
-                    self.end_headers()
-                    self.wfile.write(b'OK')
-                    return
-            
-                motor_serial.update_joystick(x, y)
+                   # Emergency stop when x and y are 0
+                    motor_serial.emergency_stop()
+                else:
+                    # Update joystick values and send the motor command
+                    motor_serial.update_joystick(x, y)
         
-                # last_command_time = time()
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(b'OK')
@@ -178,27 +193,11 @@ class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
         self.output = output
         
 
-# # Pi camera
-# picam2 = Picamera2()
-# config = picam2.create_video_configuration(main={"size": (640, 480)})
-
-# # Add the transform to flip the video upside down
-# preview_config = picam2.create_preview_configuration()
-# preview_config["transform"] = libcamera.Transform(hflip=0, vflip=1)
-
-# picam2.configure(config)
-# output = StreamingOutput()
-# picam2.start_recording(JpegEncoder(), FileOutput(output))
-
-camera_manager = CameraManager(width=640, height=480)
-camera_manager.start_stream()
-
-output = camera_manager.output
-
 try:
     address = ('', 8000)
     server = StreamingServer(address, StreamingHandler, output)
     server.serve_forever()
 finally:
-    #picam2.stop_recording()
-    camera_manager.stop_stream()
+    if camera_manager:
+        camera_manager.stop_stream()
+
